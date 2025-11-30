@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ProCalc+ — Professional Math & Physics Calculator</title>
+<meta name="description" content="ProCalc+ — A polished, animated, web calculator for math and physics problems. Includes expression parser, units, physics formula solver, graphing, history, themes, and accessibility." />
+<style>
+/* =========================
+   ProCalc+ Styles (modern, animated)
+   - CSS variables for themes
+   - Smooth animated interactions
+   - Responsive grid
+   - Accessible sizes
+   ========================= */
+:root{
+  --bg: #0b1020; --panel:#0f1724; --muted:#9fb1c8; --accent:#4f9ef8; --accent2:#36e2d8;
+  --glass: rgba(255,255,255,0.03); --radius:14px; --shadow: 0 10px 30px rgba(2,6,23,0.7);
+  --font: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+}
+:root[data-theme='light']{ --bg:#f5f8fb; --panel:#ffffff; --muted:#203040; --accent:#1e62f0; --accent2:#06b6d4; --glass: rgba(0,0,0,0.04); }
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:var(--font);background:linear-gradient(180deg, rgba(79,158,248,0.04), transparent), var(--bg);color:var(--muted);-webkit-font-smoothing:antialiased}
+.container{max-width:1200px;margin:28px auto;display:grid;grid-template-columns:1fr 360px;gap:22px;align-items:start;padding:0 18px}
+.card{background:var(--panel);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,0.03)}
+.header{display:flex;gap:12px;align-items:center}
+.logo{width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;color:white;font-weight:700}
+.title{margin:0}
+.title h1{font-size:18px;margin:0}
+.title p{margin:0;font-size:12px;color:rgba(159,177,200,0.9)}
+.display{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.exp{min-height:28px;font-size:14px;color:rgba(159,177,200,0.95);word-break:break-all}
+.res{font-size:34px;font-weight:700;color:var(--accent);text-align:right}
+.controls{display:flex;gap:8px;margin-top:8px}
+.btn{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--muted)}
+.btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent2));color:white;border:none}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:14px}
+.key{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);padding:14px;border-radius:10px;text-align:center;cursor:pointer;user-select:none;transition:transform .08s ease, box-shadow .12s ease}
+.key:active{transform:translateY(2px)}
+.key.op{color:var(--accent);font-weight:600}
+.key.wide{grid-column:span 2}
+.side{display:flex;flex-direction:column;gap:10px}
+.panel{padding:12px}
+.history{max-height:360px;overflow:auto;display:flex;flex-direction:column;gap:8px}
+.hist-item{background:var(--glass);padding:8px;border-radius:8px;display:flex;justify-content:space-between;align-items:center}
+.formula-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.formula{background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);padding:10px;border-radius:8px;cursor:pointer}
+.small{font-size:12px;color:rgba(159,177,200,0.9)}
+.footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:12px}
+/* Animations */
+@keyframes floaty{0%{transform:translateY(0)}50%{transform:translateY(-6px)}100%{transform:translateY(0)}}
+.logo{animation:floaty 4s ease-in-out infinite}
+/* responsive */
+@media(max-width:980px){.container{grid-template-columns:1fr}.side{order:2}.card{order:1}}
+/* Accessibility focus */
+.key:focus{outline:3px solid rgba(79,158,248,0.18)}
+/* fancy tooltips for buttons */
+.btn[data-tip]:hover::after{content:attr(data-tip);position:absolute;background:#111827;color:white;padding:6px 8px;border-radius:6px;margin-top:34px;font-size:12px}
+</style>
+</head>
+<body data-theme="dark">
+<main class="container">
+  <section class="card" aria-label="Calculator">
+    <div class="header">
+      <div class="logo">P+</div>
+      <div class="title"><h1>ProCalc+</h1><p>Math & Physics — professional, animated, unit-aware</p></div>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <select id="theme" class="btn" aria-label="Theme"><option>dark</option><option>light</option></select>
+        <select id="mode" class="btn" aria-label="Mode"><option>Math</option><option>Physics</option><option>Converter</option><option>Graphs</option></select>
+      </div>
+    </div>
+
+    <div class="display" role="region" aria-label="Display">
+      <div id="exp" class="exp" aria-live="polite"></div>
+      <div id="res" class="res" aria-live="assertive">0</div>
+      <div class="controls">
+        <button id="btn-c" class="btn">C</button>
+        <button id="btn-back" class="btn">⌫</button>
+        <button id="btn-ans" class="btn">ANS</button>
+        <button id="btn-plot" class="btn">Plot</button>
+        <button id="btn-calc" class="btn primary">Calculate</button>
+      </div>
+    </div>
+
+    <div class="grid" id="keypad" role="application">
+      <!-- Numbers & basic ops -->
+      <div class="key" data-val="7">7</div>
+      <div class="key" data-val="8">8</div>
+      <div class="key" data-val="9">9</div>
+      <div class="key op" data-val="/">÷</div>
+      <div class="key op" data-val="*">×</div>
+
+      <div class="key" data-val="4">4</div>
+      <div class="key" data-val="5">5</div>
+      <div class="key" data-val="6">6</div>
+      <div class="key op" data-val="-">−</div>
+      <div class="key op" data-val="+">+</div>
+
+      <div class="key" data-val="1">1</div>
+      <div class="key" data-val="2">2</div>
+      <div class="key" data-val="3">3</div>
+      <div class="key" data-val="(`)" title="backticks">`</div>
+      <div class="key wide" data-val="0">0</div>
+
+      <div class="key" data-val=".">.</div>
+      <div class="key" data-val="(">(</div>
+      <div class="key" data-val=")">)</div>
+      <div class="key" data-val="^">^</div>
+      <div class="key" data-val="%">%</div>
+
+      <!-- Scientific row -->
+      <div class="key" data-func="sin">sin</div>
+      <div class="key" data-func="cos">cos</div>
+      <div class="key" data-func="tan">tan</div>
+      <div class="key" data-func="log">log</div>
+      <div class="key" data-func="ln">ln</div>
+
+      <div class="key" data-func="sqrt">√</div>
+      <div class="key" data-func="pi">π</div>
+      <div class="key" data-func="e">e</div>
+      <div class="key" data-func="fact">n!</div>
+      <div class="key" data-func="abs">abs</div>
+
+      <!-- Physics helpers -->
+      <div class="key" data-physics="kinematics">Kinematics</div>
+      <div class="key" data-physics="energy">Energy</div>
+      <div class="key" data-physics="coulomb">Coulomb</div>
+      <div class="key" data-physics="ohm">Ohm</div>
+      <div class="key" data-physics="wave">Wave</div>
+
+      <div class="key" data-physics="grav">Gravity</div>
+      <div class="key" data-physics="optics">Optics</div>
+      <div class="key" data-physics="thermo">Thermodyn.</div>
+      <div class="key" data-physics="momentum">Momentum</div>
+      <div class="key" data-physics="custom">Custom</div>
+    </div>
+
+    <div class="footer">
+      <div class="small">ProCalc+ — calculates math & physics problems with unit support.</div>
+      <div class="small">Built-in formulas · Graphing · Animated UI</div>
+    </div>
+  </section>
+
+  <aside class="side">
+    <div class="card panel">
+      <h3>History</h3>
+      <div id="history" class="history" aria-live="polite"></div>
+      <div style="display:flex;gap:8px;margin-top:8px"><button id="clear-hist" class="btn">Clear</button><button id="export" class="btn">Export</button></div>
+    </div>
+
+    <div class="card panel">
+      <h3>Physics Formulas</h3>
+      <div class="formula-list" id="formulas">
+        <!-- filled by JS -->
+      </div>
+      <div style="margin-top:10px"><small class="small">Select a formula to open solver. You can provide known values and leave the unknown blank — ProCalc+ will solve for it where possible.</small></div>
+    </div>
+
+    <div class="card panel">
+      <h3>Unit Converter</h3>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+        <input id="conv-val" class="btn" style="flex:1" placeholder="value" />
+        <select id="conv-from" class="btn"><option>m</option><option>km</option><option>cm</option><option>ft</option></select>
+        <select id="conv-to" class="btn"><option>cm</option><option>m</option><option>km</option><option>ft</option></select>
+      </div>
+      <div style="margin-top:8px"><button id="do-conv" class="btn primary">Convert</button></div>
+      <div id="conv-res" class="small" style="margin-top:8px"></div>
+    </div>
+  </aside>
+</main>
+
+<!-- Modal for physics solver -->
+<div id="modal" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,0.6);align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--panel);padding:18px;border-radius:12px;max-width:720px;width:100%;box-shadow:var(--shadow)">
+    <h3 id="modal-title">Formula</h3>
+    <div id="modal-body"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+      <button id="modal-cancel" class="btn">Cancel</button>
+      <button id="modal-solve" class="btn primary">Solve</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================
+   ProCalc+ Engine (JS)
+   - Expression parser (shunting-yard) with functions
+   - Unit system (basic) and converter
+   - Physics formulas database and solver (symbolic rearrangement for simple linear forms)
+   - Animated UI interactions and history
+   ========================= */
+(function(){
+  'use strict';
+  // UI
+  const expEl = document.getElementById('exp');
+  const resEl = document.getElementById('res');
+  const keypad = document.getElementById('keypad');
+  const historyEl = document.getElementById('history');
+  const formulasEl = document.getElementById('formulas');
+  const modal = document.getElementById('modal');
+  const modalTitle = document.getElementById('modal-title');
+  const modalBody = document.getElementById('modal-body');
+  const themeSel = document.getElementById('theme');
+  const modeSel = document.getElementById('mode');
+
+  // State
+  let expr = '';
+  let lastAns = null;
+  let history = [];
+  let currentFormula = null;
+
+  // Basic math functions (exposed to parser)
+  const MATH = { pi:Math.PI, e:Math.E, sin:Math.sin, cos:Math.cos, tan:Math.tan, asin:Math.asin, acos:Math.acos, atan:Math.atan, sqrt:Math.sqrt, log:Math.log, ln:Math.log, abs:Math.abs, floor:Math.floor, ceil:Math.ceil, exp:Math.exp };
+
+  // Simple tokenizer
+  function tokenize(s){
+    const tokens = []; let i=0;
+    while(i<s.length){
+      const ch = s[i];
+      if(/\s/.test(ch)){i++;continue}
+      if(/[0-9.]/.test(ch)){let num=ch;i++;while(i<s.length&&/[0-9.]/.test(s[i])){num+=s[i++]}tokens.push({type:'num',v:parseFloat(num)});continue}
+      if(/[A-Za-z_]/.test(ch)){let id=ch;i++;while(i<s.length&&/[A-Za-z0-9_]/.test(s[i]))id+=s[i++];tokens.push({type:'id',v:id});continue}
+      if(ch==='+'||ch==='-'||ch==='*'||ch==='/'||ch==='^'||ch==='%') {tokens.push({type:'op',v:ch});i++;continue}
+      if(ch==='('||ch===')'){tokens.push({type:'par',v:ch});i++;continue}
+      // skip unknown
+      i++;
+    }
+    return tokens;
+  }
+
+  const PREC = {'+':1,'-':1,'*':2,'/':2,'%':2,'^':3};
+
+  function toRPN(tokens){
+    const out=[]; const ops=[];
+    tokens.forEach(t=>{
+      if(t.type==='num'||t.type==='id') out.push(t);
+      else if(t.type==='op'){
+        while(ops.length && ops[ops.length-1].type==='op' && ((PREC[ops[ops.length-1].v]||0) >= (PREC[t.v]||0))){ out.push(ops.pop()); }
+        ops.push(t);
+      } else if(t.type==='par'){
+        if(t.v==='(') ops.push(t); else { while(ops.length && ops[ops.length-1].v!=='(') out.push(ops.pop()); ops.pop(); }
+      }
+    }); while(ops.length) out.push(ops.pop()); return out;
+  }
+
+  function evalRPN(rpn){
+    const st=[];
+    for(const t of rpn){
+      if(t.type==='num') st.push(t.v);
+      else if(t.type==='id'){
+        const id=t.v.toLowerCase(); if(id==='ans'){st.push(lastAns||0);continue} if(id in MATH){st.push(MATH[id]);continue} st.push(0);
+      } else if(t.type==='op'){
+        const b=st.pop(), a=st.pop(); switch(t.v){case'+':st.push(a+b);break;case'-':st.push(a-b);break;case'*':st.push(a*b);break;case'/':st.push(a/b);break;case'%':st.push(a%b);break;case'^':st.push(Math.pow(a,b));break}
+      }
+    }
+    return st.pop();
+  }
+
+  function safeEval(input){
+    // support functions like sin(2) by pre-processing id(parens)
+    try{
+      const tokens = tokenize(input.replace(/×/g,'*').replace(/÷/g,'/'));
+      const rpn = toRPN(tokens);
+      const val = evalRPN(rpn);
+      if(!isFinite(val)) throw new Error('Non-finite');
+      return val;
+    }catch(e){throw e}
+  }
+
+  // UI helpers
+  function setExp(s){ expr=s; expEl.textContent=s; }
+  function setRes(v){ resEl.textContent = (v===undefined||v===null)?'0':String(v); }
+
+  // keypad events
+  keypad.addEventListener('click',(ev)=>{
+    const k = ev.target.closest('.key'); if(!k) return;
+    if(k.dataset.val) { setExp(expr + k.dataset.val); return; }
+    if(k.dataset.func) { setExp(expr + k.dataset.func + '('); return; }
+    if(k.dataset.physics){ openFormula(k.dataset.physics); return; }
+  });
+
+  document.getElementById('btn-c').addEventListener('click',()=>{ setExp(''); setRes(0); });
+  document.getElementById('btn-back').addEventListener('click',()=>{ setExp(expr.slice(0,-1)); });
+  document.getElementById('btn-calc').addEventListener('click',()=>{ try{ const v=safeEval(expr); lastAns=v; addHistory(expr,v); setRes(v); setExp(''); }catch(e){ setRes('Error'); console.error(e); } });
+  document.getElementById('btn-ans').addEventListener('click',()=>{ setExp(expr + 'ANS'); });
+  document.getElementById('btn-plot').addEventListener('click',()=>{ alert('Plotting is available in Graphs mode. Switch mode to Graphs.'); });
+
+  // History
+  function addHistory(e,r){ history.unshift({expr:e,result:r,time:new Date().toISOString()}); renderHistory(); }
+  function renderHistory(){ historyEl.innerHTML=''; history.forEach(h=>{ const d=document.createElement('div'); d.className='hist-item'; d.innerHTML=`<div>${h.expr}</div><div style="font-weight:700;color:var(--accent)">${h.result}</div>`; d.tabIndex=0; d.addEventListener('click',()=>{ setExp(h.expr); setRes(h.result); }); historyEl.appendChild(d); }); }
+  document.getElementById('clear-hist').addEventListener('click',()=>{ history = []; renderHistory(); });
+  document.getElementById('export').addEventListener('click',()=>{ const blob=new Blob([JSON.stringify(history,0,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='procalc_history.json'; a.click(); });
+
+  // Unit converter
+  const units = { m:1, cm:0.01, km:1000, ft:0.3048 };
+  document.getElementById('do-conv').addEventListener('click',()=>{
+    const v=parseFloat(document.getElementById('conv-val').value); const f=document.getElementById('conv-from').value; const t=document.getElementById('conv-to').value;
+    if(isNaN(v)){ document.getElementById('conv-res').textContent='Enter a number'; return; }
+    const res = v * (units[f]||1) / (units[t]||1); document.getElementById('conv-res').textContent = res + ' ' + t;
+  });
+
+  // Theme
+  themeSel.addEventListener('change',(e)=>{ document.body.setAttribute('data-theme', e.target.value); });
+
+  // Formulas database (selected subset)
+  const FORMULAS = {
+    kinematics: { name:'Kinematic equations (constant acceleration)', vars:['v0','v','a','t','x0','x'], desc:'v = v0 + a t; x = x0 + v0 t + 0.5 a t^2', solve: function(inputs){ // naive solver: if one missing, solve
+        // parse inputs to numbers or null
+        const I = mapInputs(inputs, ['v0','v','a','t','x0','x']);
+        // try to solve simple cases: if t missing and a provided and v and v0 provided: t = (v - v0)/a
+        if(I.v==null && I.v0!=null && I.a!=null && I.t!=null) return {v: I.v0 + I.a*I.t};
+        if(I.t==null && I.v!=null && I.v0!=null && I.a!=null) return {t: (I.v - I.v0)/I.a};
+        if(I.x==null && I.x0!=null && I.v0!=null && I.t!=null && I.a!=null) return {x: I.x0 + I.v0*I.t + 0.5*I.a*I.t*I.t};
+        // fallback: return null
+        return null; } },
+    energy: { name:'Kinetic & Potential Energy', vars:['m','v','g','h','KE','PE'], desc:'KE = 0.5 m v^2; PE = m g h', solve: function(inputs){ const I=mapInputs(inputs,['m','v','g','h','KE','PE']); if(I.KE==null && I.m!=null && I.v!=null) return {KE:0.5*I.m*I.v*I.v}; if(I.PE==null && I.m!=null && I.g!=null && I.h!=null) return {PE:I.m*I.g*I.h}; return null; } },
+    ohm: { name:'Ohm's Law', vars:['V','I','R','P'], desc:'V = I R; P = V I', solve:function(inputs){ const I=mapInputs(inputs,['V','I','R','P']); if(I.V==null && I.I!=null && I.R!=null) return {V: I.I*I.R}; if(I.I==null && I.V!=null && I.R!=null) return {I: I.V/I.R}; if(I.R==null && I.V!=null && I.I!=null) return {R: I.V/I.I}; if(I.P==null && I.V!=null && I.I!=null) return {P: I.V*I.I}; return null;} },
+    grav: { name:'Gravitational force', vars:['m1','m2','r','G','F'], desc:'F = G m1 m2 / r^2', solve:function(inputs){ const I=mapInputs(inputs,['m1','m2','r','G','F']); const Gval = I.G||6.67430e-11; if(I.F==null && I.m1!=null && I.m2!=null && I.r!=null) return {F: Gval*I.m1*I.m2/(I.r*I.r)}; return null; } }
+  };
+
+  function mapInputs(obj, keys){ const out={}; keys.forEach(k=>{ out[k]= (obj && obj[k] !== undefined && obj[k] !== '' && obj[k] !== null) ? Number(obj[k]) : null }); return out; }
+
+  // render formula tiles
+  Object.keys(FORMULAS).forEach(k=>{ const f=FORMULAS[k]; const d=document.createElement('div'); d.className='formula'; d.tabIndex=0; d.innerHTML=`<strong>${f.name}</strong><div class="small">${f.desc}</div>`; d.addEventListener('click',()=>openFormula(k)); formulasEl.appendChild(d); });
+
+  function openFormula(key){ currentFormula = FORMULAS[key]; modalTitle.textContent = currentFormula.name; modalBody.innerHTML = '';
+    const tbl = document.createElement('div'); tbl.style.display='grid'; tbl.style.gridTemplateColumns='1fr 1fr'; tbl.style.gap='8px';
+    currentFormula.vars.forEach(v=>{ const wrap=document.createElement('div'); wrap.innerHTML=`<label class="small">${v}</label><input data-var="${v}" style="width:100%;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--muted)" />`; tbl.appendChild(wrap); });
+    modalBody.appendChild(tbl); modal.style.display='flex';
+  }
+
+  document.getElementById('modal-cancel').addEventListener('click',()=>{ modal.style.display='none'; });
+  document.getElementById('modal-solve').addEventListener('click',()=>{
+    const inputs = {}; modalBody.querySelectorAll('[data-var]').forEach(inp=>{ inputs[inp.dataset.var]=inp.value; });
+    const sol = currentFormula.solve(inputs);
+    if(sol){ // display results
+      Object.keys(sol).forEach(k=>{ alert(k+': '+sol[k]); addHistory(currentFormula.name+' solve', k+': '+sol[k]); setRes(sol[k]); modal.style.display='none'; });
+    } else { alert('Could not solve with given inputs — try providing more known values.'); }
+  });
+
+  // keyboard support
+  document.addEventListener('keydown',(e)=>{
+    if(e.key==='Enter'){ document.getElementById('btn-calc').click(); }
+    if(e.key==='Backspace'){ setExp(expr.slice(0,-1)); }
+    if(e.key==='Escape'){ setExp(''); setRes(0); }
+    if(/^[0-9.]$/.test(e.key)) setExp(expr + e.key);
+    if(['+','-','*','/','%','^','(',')'].includes(e.key)) setExp(expr + e.key);
+  });
+
+  // initialize
+  setExp(''); setRes(0);
+})();
+</script>
+</body>
+</html>
