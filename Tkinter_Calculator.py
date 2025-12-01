@@ -1,24 +1,3 @@
-"""
-Professional Calculator App (single-file)
-Author: ChatGPT (GPT-5 Thinking mini)
-Description:
-A polished, feature-rich calculator written in pure Python/Tkinter.
-Features:
-- Standard, Scientific, and Programmer modes
-- Expression evaluator using ast (safe)
-- Memory (M+, M-, MR, MC)
-- Calculation history with search and export
-- Theme support (light/dark/solarized) and adjustable font size
-- Keyboard support for digits, operators, Enter/Escape, Backspace
-- Plotting window (requires matplotlib) for simple function plots
-- Unit converter panel (length, mass, temperature)
-- Config persistence in JSON
-- Well-structured classes and comments for maintainability
-
-Run: python3 professional_calculator.py
-Requirements: Python 3.8+, tkinter (bundled on most systems), matplotlib optional for plotting
-"""
-
 import ast
 import math
 import operator
